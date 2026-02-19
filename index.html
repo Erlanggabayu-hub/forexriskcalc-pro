@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Forex Risk & Lot Size Calculator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            surface: {
+              50: '#1a1d23',
+              100: '#1e2128',
+              200: '#23272f',
+              300: '#2a2e37',
+              400: '#32363f',
+              500: '#3a3f49',
+            },
+            accent: {
+              DEFAULT: '#3b82f6',
+              hover: '#2563eb',
+              subtle: 'rgba(59,130,246,0.12)',
+            },
+            profit: '#10b981',
+            loss: '#ef4444',
+            warn: '#f59e0b',
+            muted: '#6b7280',
+            dim: '#9ca3af',
+          },
+          fontFamily: {
+            sans: ['"Inter"', 'system-ui', '-apple-system', 'sans-serif'],
+            mono: ['"JetBrains Mono"', '"SF Mono"', 'Consolas', 'monospace'],
+          },
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      background-color: #13151a;
+      color: #e5e7eb;
+      font-family: 'Inter', system-ui, sans-serif;
+    }
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type="number"] { -moz-appearance: textfield; }
+    select {
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%236b7280' viewBox='0 0 16 16'%3E%3Cpath d='M8 11.5l-5-5h10l-5 5z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+    }
+    .result-card {
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .result-card:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+    }
+    .input-field:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+    }
+    .toggle-btn {
+      transition: background-color 0.15s ease, color 0.15s ease;
+    }
+    .toggle-btn.active {
+      background-color: rgba(59,130,246,0.15);
+      color: #3b82f6;
+      border-color: rgba(59,130,246,0.3);
+    }
+    .rr-bar {
+      transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      border-radius: 4px;
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-in {
+      animation: fadeInUp 0.3s ease forwards;
+    }
+    .pulse-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      animation: pulse-glow 2s ease-in-out infinite;
+    }
+    @keyframes pulse-glow {
+      0%, 100% { opacity: 0.5; }
+      50% { opacity: 1; }
+    }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #32363f; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3a3f49; }
+  </style>
+</head>
+<body class="min-h-screen">
+
+  <!-- Header -->
+  <header class="border-b border-surface-300/50 bg-surface-50/80 backdrop-blur-sm sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-accent/20 flex items-center justify-center">
+          <svg class="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-sm font-semibold text-white tracking-tight">Forex Risk Calculator</h1>
+          <p class="text-[11px] text-muted">Multi-Asset Lot Size & P/L</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="pulse-dot bg-profit"></div>
+        <span class="text-[11px] text-muted font-medium">Live Calc</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      <!-- Left: Input Panel -->
+      <div class="lg:col-span-5">
+        <div class="bg-surface-100 border border-surface-300/60 rounded-2xl p-5 sm:p-6">
+
+          <!-- Instrument Selection -->
+          <div class="mb-6">
+            <label class="block text-[11px] font-semibold uppercase tracking-wider text-muted mb-2">Instrument</label>
+            <select id="instrument" class="input-field w-full bg-surface-200 border border-surface-400 text-white text-sm font-medium rounded-xl px-4 py-3 pr-10 cursor-pointer hover:border-surface-500 transition-colors">
+              <option value="XAUUSD">XAUUSD — Gold</option>
+              <option value="EURUSD">EURUSD — Euro / USD</option>
+              <option value="GBPUSD">GBPUSD — Pound / USD</option>
+              <option value="USDJPY">USDJPY — USD / Yen</option>
+              <option value="US30">US30 — Dow Jones</option>
+            </select>
+            <div class="flex items-center gap-4 mt-2.5 px-1">
+              <span class="text-[11px] text-muted">Pip Size: <span id="pipSizeDisplay" class="text-dim font-mono font-medium">0.01</span></span>
+              <span class="text-[11px] text-muted">Pip Value: <span id="pipValueDisplay" class="text-dim font-mono font-medium">$1.00</span><span class="text-muted"> /lot</span></span>
+            </div>
+          </div>
+
+          <div class="h-px bg-surface-300/40 mb-6"></div>
+
+          <!-- Account Section -->
+          <div class="mb-6">
+            <label class="block text-[11px] font-semibold uppercase tracking-wider text-muted mb-2">Account Balance</label>
+            <div class="relative">
+              <span class="absolute left-4 top-1/2 -translate-y-1/2 text-muted text-sm font-medium">$</span>
+              <input type="number" id="balance" value="10000" min="0" step="100"
+                class="input-field w-full bg-surface-200 border border-surface-400 text-white text-sm font-mono rounded-xl pl-8 pr-4 py-3 transition-colors">
+            </div>
+          </div>
+
+          <!-- Risk Toggle -->
+          <div class="mb-6">
+            <div class="flex items-center justify-between mb-2">
+              <label class="text-[11px] font-semibold uppercase tracking-wider text-muted">Risk Amount</label>
+              <div class="flex bg-surface-200 rounded-lg p-0.5 border border-surface-400/60">
+                <button id="togglePercent" class="toggle-btn active text-[11px] font-semibold px-3 py-1 rounded-md border border-transparent" onclick="setRiskMode('percent')">%</button>
+                <button id="toggleDollar" class="toggle-btn text-[11px] font-semibold px-3 py-1 rounded-md border border-transparent text-muted" onclick="setRiskMode('dollar')">$</button>
+              </div>
+            </div>
+            <div class="relative">
+              <span id="riskPrefix" class="absolute left-4 top-1/2 -translate-y-1/2 text-muted text-sm font-medium"></span>
+              <input type="number" id="risk" value="2" min="0" step="0.1"
+                class="input-field w-full bg-surface-200 border border-surface-400 text-white text-sm font-mono rounded-xl pl-4 pr-10 py-3 transition-colors">
+              <span id="riskSuffix" class="absolute right-4 top-1/2 -translate-y-1/2 text-muted text-sm font-medium">%</span>
+            </div>
+            <p id="riskEquivalent" class="text-[11px] text-muted mt-1.5 px-1">= $200.00 at risk</p>
+          </div>
+
+          <div class="h-px bg-surface-300/40 mb-6"></div>
+
+          <!-- Price Inputs -->
+          <div class="space-y-4">
+            <div>
+              <label class="block text-[11px] font-semibold uppercase tracking-wider text-muted mb-2">Open Price</label>
+              <input type="number" id="openPrice" placeholder="e.g. 2650.00" step="any"
+                class="input-field w-full bg-surface-200 border border-surface-400 text-white text-sm font-mono rounded-xl px-4 py-3 transition-colors placeholder:text-surface-500">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-[11px] font-semibold uppercase tracking-wider text-loss/80 mb-2">
+                  <span class="inline-flex items-center gap-1">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+                    Stop Loss
+                  </span>
+                </label>
+                <input type="number" id="slPrice" placeholder="SL Price" step="any"
+                  class="input-field w-full bg-surface-200 border border-surface-400 text-white text-sm font-mono rounded-xl px-4 py-3 transition-colors placeholder:text-surface-500">
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold uppercase tracking-wider text-profit/80 mb-2">
+                  <span class="inline-flex items-center gap-1">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
+                    Take Profit
+                  </span>
+                </label>
+                <input type="number" id="tpPrice" placeholder="TP Price" step="any"
+                  class="input-field w-full bg-surface-200 border border-surface-400 text-white text-sm font-mono rounded-xl px-4 py-3 transition-colors placeholder:text-surface-500">
+              </div>
+            </div>
+          </div>
+
+          <!-- Direction Indicator -->
+          <div id="directionBadge" class="mt-5 hidden">
+            <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-200/60 border border-surface-300/40">
+              <div id="directionDot" class="w-2 h-2 rounded-full"></div>
+              <span id="directionText" class="text-[11px] font-semibold uppercase tracking-wider"></span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Right: Results Panel -->
+      <div class="lg:col-span-7">
+
+        <!-- Results Grid -->
+        <div id="resultsPanel" class="space-y-4">
+
+          <!-- Primary Results -->
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+
+            <div class="result-card bg-surface-100 border border-surface-300/60 rounded-xl p-4">
+              <div class="text-[10px] font-semibold uppercase tracking-wider text-muted mb-1.5">Lot Size</div>
+              <div id="resultLotSize" class="text-xl sm:text-2xl font-bold font-mono text-white">—</div>
+              <div class="text-[10px] text-muted mt-1">Recommended</div>
+            </div>
+
+            <div class="result-card bg-surface-100 border border-surface-300/60 rounded-xl p-4">
+              <div class="text-[10px] font-semibold uppercase tracking-wider text-muted mb-1.5">Risk Amount</div>
+              <div id="resultRiskAmt" class="text-xl sm:text-2xl font-bold font-mono text-warn">—</div>
+              <div id="resultRiskPct" class="text-[10px] text-muted mt-1">—</div>
+            </div>
+
+            <div class="result-card bg-surface-100 border border-surface-300/60 rounded-xl p-4 col-span-2 sm:col-span-1">
+              <div class="text-[10px] font-semibold uppercase tracking-wider text-muted mb-1.5">R:R Ratio</div>
+              <div id="resultRR" class="text-xl sm:text-2xl font-bold font-mono text-accent">—</div>
+              <div id="resultRRLabel" class="text-[10px] text-muted mt-1">Risk / Reward</div>
+            </div>
+
+          </div>
+
+          <!-- SL / TP Pips -->
+          <div class="grid grid-cols-2 gap-3">
+            <div class="result-card bg-surface-100 border border-loss/10 rounded-xl p-4">
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-[10px] font-semibold uppercase tracking-wider text-loss/70">Stop Loss</span>
+                <span id="resultSLPips" class="text-[11px] font-mono font-semibold text-loss/80">— pips</span>
+              </div>
+              <div id="resultNetLoss" class="text-lg font-bold font-mono text-loss">—</div>
+              <div class="text-[10px] text-muted mt-1">Potential loss</div>
+            </div>
+            <div class="result-card bg-surface-100 border border-profit/10 rounded-xl p-4">
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-[10px] font-semibold uppercase tracking-wider text-profit/70">Take Profit</span>
+                <span id="resultTPPips" class="text-[11px] font-mono font-semibold text-profit/80">— pips</span>
+              </div>
+              <div id="resultNetProfit" class="text-lg font-bold font-mono text-profit">—</div>
+              <div class="text-[10px] text-muted mt-1">Potential profit</div>
+            </div>
+          </div>
+
+          <!-- Risk/Reward Visual Bar -->
+          <div class="bg-surface-100 border border-surface-300/60 rounded-xl p-4 sm:p-5">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-[10px] font-semibold uppercase tracking-wider text-muted">Risk / Reward Visualization</span>
+              <span id="rrRatioSmall" class="text-[11px] font-mono font-medium text-dim">—</span>
+            </div>
+            <div class="flex gap-1 h-8 rounded-lg overflow-hidden bg-surface-300/30">
+              <div id="rrBarLoss" class="rr-bar bg-loss/70 flex items-center justify-center" style="width: 50%;">
+                <span id="rrBarLossLabel" class="text-[10px] font-bold text-white/90 whitespace-nowrap px-2">—</span>
+              </div>
+              <div id="rrBarProfit" class="rr-bar bg-profit/70 flex items-center justify-center" style="width: 50%;">
+                <span id="rrBarProfitLabel" class="text-[10px] font-bold text-white/90 whitespace-nowrap px-2">—</span>
+              </div>
+            </div>
+            <div class="flex justify-between mt-2 px-1">
+              <span class="text-[10px] text-loss/60 font-medium">Loss</span>
+              <span class="text-[10px] text-profit/60 font-medium">Profit</span>
+            </div>
+          </div>
+
+          <!-- Lot Size Breakdown Table -->
+          <div class="bg-surface-100 border border-surface-300/60 rounded-xl p-4 sm:p-5">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-[10px] font-semibold uppercase tracking-wider text-muted">Position Sizing Breakdown</span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-[12px]">
+                <thead>
+                  <tr class="border-b border-surface-300/40">
+                    <th class="text-left text-muted font-semibold uppercase tracking-wider pb-2 pr-4">Metric</th>
+                    <th class="text-right text-muted font-semibold uppercase tracking-wider pb-2">Value</th>
+                  </tr>
+                </thead>
+                <tbody id="breakdownTable" class="divide-y divide-surface-300/20">
+                  <tr><td class="py-2.5 text-dim pr-4">Account Balance</td><td id="tbBalance" class="py-2.5 text-right font-mono text-white">—</td></tr>
+                  <tr><td class="py-2.5 text-dim pr-4">Risk per Trade</td><td id="tbRisk" class="py-2.5 text-right font-mono text-warn">—</td></tr>
+                  <tr><td class="py-2.5 text-dim pr-4">SL Distance (pips)</td><td id="tbSLPips" class="py-2.5 text-right font-mono text-loss">—</td></tr>
+                  <tr><td class="py-2.5 text-dim pr-4">TP Distance (pips)</td><td id="tbTPPips" class="py-2.5 text-right font-mono text-profit">—</td></tr>
+                  <tr><td class="py-2.5 text-dim pr-4">Pip Value / Lot</td><td id="tbPipVal" class="py-2.5 text-right font-mono text-white">—</td></tr>
+                  <tr><td class="py-2.5 text-dim pr-4">Recommended Lot Size</td><td id="tbLot" class="py-2.5 text-right font-mono font-semibold text-accent">—</td></tr>
+                  <tr><td class="py-2.5 text-dim pr-4">Position Size (units)</td><td id="tbUnits" class="py-2.5 text-right font-mono text-white">—</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer Note -->
+    <div class="mt-8 text-center">
+      <p class="text-[11px] text-surface-500">Calculations are estimates based on standard lot sizes. Actual results may vary based on broker conditions, spreads, and slippage.</p>
+    </div>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
